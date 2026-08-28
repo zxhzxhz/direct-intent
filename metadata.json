@@ -1,0 +1,6 @@
+{
+  "name": "intent快捷指令",
+  "description": "Root-powered intent shortcut manager with Quick Settings Control Center tiles and JumpReplay intent launcher support.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

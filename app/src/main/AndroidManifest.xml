@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" tools:ignore="QueryAllPackagesPermission" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="com.android.launcher.permission.INSTALL_SHORTCUT" />
+
+    <application
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.MyApplication">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.MyApplication">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".ShortcutLauncherActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Translucent"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:launchMode="singleInstance">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <!-- Control Center Quick Settings Tiles -->
+        <service
+            android:name=".tiles.QuickTile1Service"
+            android:exported="true"
+            android:icon="@drawable/ic_launcher_foreground"
+            android:label="Intent 快捷 1"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name=".tiles.QuickTile2Service"
+            android:exported="true"
+            android:icon="@drawable/ic_launcher_foreground"
+            android:label="Intent 快捷 2"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name=".tiles.QuickTile3Service"
+            android:exported="true"
+            android:icon="@drawable/ic_launcher_foreground"
+            android:label="Intent 快捷 3"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name=".tiles.QuickTile4Service"
+            android:exported="true"
+            android:icon="@drawable/ic_launcher_foreground"
+            android:label="Intent 快捷 4"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name=".tiles.QuickTile5Service"
+            android:exported="true"
+            android:icon="@drawable/ic_launcher_foreground"
+            android:label="Intent 快捷 5"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name=".tiles.QuickTile6Service"
+            android:exported="true"
+            android:icon="@drawable/ic_launcher_foreground"
+            android:label="Intent 快捷 6"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name=".tiles.QuickTile7Service"
+            android:exported="true"
+            android:icon="@drawable/ic_launcher_foreground"
+            android:label="Intent 快捷 7"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name=".tiles.QuickTile8Service"
+            android:exported="true"
+            android:icon="@drawable/ic_launcher_foreground"
+            android:label="Intent 快捷 8"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name=".tiles.QuickTile9Service"
+            android:exported="true"
+            android:icon="@drawable/ic_launcher_foreground"
+            android:label="Intent 快捷 9"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name=".tiles.QuickTile10Service"
+            android:exported="true"
+            android:icon="@drawable/ic_launcher_foreground"
+            android:label="Intent 快捷 10"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+    </application>
+
+</manifest>
