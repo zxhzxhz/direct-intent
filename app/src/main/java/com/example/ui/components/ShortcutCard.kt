@@ -42,7 +42,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontFamily
+import coil.compose.AsyncImage
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -96,15 +98,29 @@ fun ShortcutCard(
                     modifier = Modifier
                         .size(48.dp)
                         .clip(RoundedCornerShape(14.dp))
-                        .background(iconMeta.composeColor.copy(alpha = 0.14f)),
+                        .background(
+                            if (!shortcut.customIconUri.isNullOrBlank()) Color.Transparent
+                            else iconMeta.composeColor.copy(alpha = 0.14f)
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = iconMeta.vector,
-                        contentDescription = null,
-                        tint = iconMeta.composeColor,
-                        modifier = Modifier.size(26.dp)
-                    )
+                    if (!shortcut.customIconUri.isNullOrBlank()) {
+                        AsyncImage(
+                            model = shortcut.customIconUri,
+                            contentDescription = shortcut.alias,
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(RoundedCornerShape(14.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Icon(
+                            imageVector = iconMeta.vector,
+                            contentDescription = null,
+                            tint = iconMeta.composeColor,
+                            modifier = Modifier.size(26.dp)
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.width(14.dp))

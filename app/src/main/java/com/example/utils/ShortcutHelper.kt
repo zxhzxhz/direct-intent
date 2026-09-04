@@ -13,6 +13,7 @@ import android.graphics.Rect
 import android.graphics.RectF
 import android.net.Uri
 import android.os.Build
+import android.provider.MediaStore
 import android.provider.Settings
 import android.widget.Toast
 import androidx.core.content.pm.ShortcutInfoCompat
@@ -20,6 +21,8 @@ import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
 import com.example.ShortcutLauncherActivity
 import com.example.data.ShortcutEntity
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 
@@ -41,46 +44,54 @@ object ShortcutHelper {
         }
     }
 
-    fun saveCustomImage(context: Context, uri: Uri): String? {
-        return try {
-            val inputStream = context.contentResolver.openInputStream(uri) ?: return null
-            val bitmap = BitmapFactory.decodeStream(inputStream)
-            inputStream.close()
+    /**
+     * Loads image via Coil / fallback, crops to squircle desktop icon, and saves permanently in internal storage.
+     */
+    suspend fun saveCustomImage(context: Context, uri: Uri): String? {
+        return withContext(Dispatchers.IO) {
+            try {
+                // 1. Try loading & cropping with Coil first
+                var bitmap = IconHelper.loadCustomIconBitmap(context, uri, size = 512, cornerRadiusRatio = 0.24f)
 
-            val dir = File(context.filesDir, "custom_icons")
-            if (!dir.exists()) dir.mkdirs()
+                // 2. Fallback if Coil failed for certain local provider content URIs
+                if (bitmap == null) {
+                    val rawBitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                        try {
+                            android.graphics.ImageDecoder.decodeBitmap(
+                                android.graphics.ImageDecoder.createSource(context.contentResolver, uri)
+                            ) { decoder, _, _ -> decoder.isMutableRequired = true }
+                        } catch (e: Exception) {
+                            null
+                        }
+                    } else {
+                        @Suppress("DEPRECATION")
+                        try { MediaStore.Images.Media.getBitmap(context.contentResolver, uri) } catch (e: Exception) { null }
+                    }
+                    if (rawBitmap != null) {
+                        bitmap = IconHelper.createSquircleBitmap(rawBitmap, cornerRadiusRatio = 0.24f, targetSize = 512)
+                    }
+                }
 
-            val file = File(dir, "icon_${System.currentTimeMillis()}.png")
-            val out = FileOutputStream(file)
-            bitmap.compress(Bitmap.CompressFormat.PNG, 95, out)
-            out.flush()
-            out.close()
-            file.absolutePath
-        } catch (e: Exception) {
-            e.printStackTrace()
-            null
+                if (bitmap == null) return@withContext null
+
+                val dir = File(context.filesDir, "custom_icons")
+                if (!dir.exists()) dir.mkdirs()
+
+                val file = File(dir, "icon_${System.currentTimeMillis()}.png")
+                FileOutputStream(file).use { out ->
+                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+                    out.flush()
+                }
+                file.absolutePath
+            } catch (e: Exception) {
+                e.printStackTrace()
+                null
+            }
         }
     }
 
-    fun createRoundedBitmap(src: Bitmap, cornerRadiusRatio: Float = 0.25f): Bitmap {
-        val size = minOf(src.width, src.height)
-        val output = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(output)
-
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-        val rect = Rect(0, 0, size, size)
-        val rectF = RectF(rect)
-        val corner = size * cornerRadiusRatio
-
-        canvas.drawRoundRect(rectF, corner, corner, paint)
-
-        paint.xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_IN)
-        val left = (src.width - size) / 2
-        val top = (src.height - size) / 2
-        val srcRect = Rect(left, top, left + size, top + size)
-        canvas.drawBitmap(src, srcRect, rect, paint)
-
-        return output
+    fun createRoundedBitmap(src: Bitmap, cornerRadiusRatio: Float = 0.24f): Bitmap {
+        return IconHelper.createSquircleBitmap(src, cornerRadiusRatio, minOf(src.width, src.height))
     }
 
     fun pinShortcutToHomeScreen(
@@ -107,6 +118,15 @@ object ShortcutHelper {
             val iconCompat = if (customImageBitmap != null) {
                 val rounded = createRoundedBitmap(customImageBitmap, 0.24f)
                 IconCompat.createWithBitmap(rounded)
+            } else if (!shortcut.customIconUri.isNullOrBlank()) {
+                val file = File(shortcut.customIconUri)
+                if (file.exists()) {
+                    val bmp = BitmapFactory.decodeFile(file.absolutePath)
+                    IconCompat.createWithBitmap(bmp ?: IconHelper.renderIconToBitmap(context, shortcut.iconName))
+                } else {
+                    val vectorBitmap = IconHelper.renderIconToBitmap(context = context, iconName = shortcut.iconName)
+                    IconCompat.createWithBitmap(vectorBitmap)
+                }
             } else {
                 val vectorBitmap = IconHelper.renderIconToBitmap(
                     context = context,

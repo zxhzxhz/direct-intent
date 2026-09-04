@@ -12,10 +12,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.TouchApp
@@ -27,22 +25,23 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.example.data.ShortcutEntity
 import com.example.ui.theme.HyperOSBlue
 import com.example.ui.theme.HyperOSEmerald
 import com.example.ui.theme.HyperOSOrange
-import com.example.ui.theme.HyperOSPurple
 import com.example.utils.IconHelper
+import com.example.utils.TileHelper
 
 @Composable
 fun ControlCenterTileSheet(
@@ -50,6 +49,8 @@ fun ControlCenterTileSheet(
     onDismiss: () -> Unit,
     onEditShortcut: (ShortcutEntity) -> Unit
 ) {
+    val context = LocalContext.current
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -155,7 +156,7 @@ fun ControlCenterTileSheet(
                                 ) {
                                     Box(
                                         modifier = Modifier
-                                            .size(32.dp)
+                                            .size(34.dp)
                                             .clip(RoundedCornerShape(10.dp))
                                             .background(
                                                 if (boundShortcut != null) HyperOSEmerald.copy(alpha = 0.15f)
@@ -163,12 +164,30 @@ fun ControlCenterTileSheet(
                                             ),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        Text(
-                                            text = "T$slotNumber",
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = if (boundShortcut != null) HyperOSEmerald else MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
+                                        if (boundShortcut != null && !boundShortcut.customIconUri.isNullOrBlank()) {
+                                            AsyncImage(
+                                                model = boundShortcut.customIconUri,
+                                                contentDescription = null,
+                                                modifier = Modifier
+                                                    .size(34.dp)
+                                                    .clip(RoundedCornerShape(10.dp)),
+                                                contentScale = ContentScale.Crop
+                                            )
+                                        } else if (boundShortcut != null) {
+                                            Icon(
+                                                imageVector = IconHelper.getIcon(boundShortcut.iconName),
+                                                contentDescription = null,
+                                                tint = HyperOSEmerald,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        } else {
+                                            Text(
+                                                text = "T$slotNumber",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
                                     }
 
                                     Spacer(modifier = Modifier.width(10.dp))
@@ -215,7 +234,10 @@ fun ControlCenterTileSheet(
         },
         confirmButton = {
             Button(
-                onClick = onDismiss,
+                onClick = {
+                    TileHelper.requestUpdateAllTiles(context)
+                    onDismiss()
+                },
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = HyperOSBlue)
             ) {

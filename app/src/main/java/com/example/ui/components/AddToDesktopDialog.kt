@@ -2,12 +2,10 @@ package com.example.ui.components
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.ImageDecoder
 import android.net.Uri
-import android.os.Build
-import android.provider.MediaStore
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -25,19 +23,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Photo
 import androidx.compose.material.icons.filled.Security
@@ -45,6 +39,7 @@ import androidx.compose.material.icons.filled.Smartphone
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -56,6 +51,7 @@ import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -71,7 +67,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -98,11 +93,12 @@ fun AddToDesktopDialog(
     val coroutineScope = rememberCoroutineScope()
 
     var shortcutTitle by remember { mutableStateOf(shortcut.alias) }
-    var selectedTab by remember { mutableIntStateOf(0) } // 0: 内置图标, 1: 外部图片
+    var selectedTab by remember { mutableIntStateOf(if (shortcut.customIconUri.isNullOrBlank()) 0 else 1) } // 0: 内置图标, 1: 外部图片
     var selectedIconName by remember { mutableStateOf(shortcut.iconName) }
     var selectedColorIndex by remember { mutableIntStateOf(0) }
-    var customImageUri by remember { mutableStateOf<Uri?>(null) }
+    var customImagePath by remember { mutableStateOf(shortcut.customIconUri) }
     var customBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var isImageLoading by remember { mutableStateOf(false) }
 
     val presetColors = listOf(
         0xFF0066FF.toInt() to "经典蓝",
@@ -115,27 +111,31 @@ fun AddToDesktopDialog(
         0xFFEAB308.toInt() to "金灿黄"
     )
 
-    val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
+    // Load initial custom bitmap if shortcut has a custom icon
+    LaunchedEffect(shortcut.customIconUri) {
+        if (!shortcut.customIconUri.isNullOrBlank()) {
+            val bmp = IconHelper.loadCustomIconBitmap(context, shortcut.customIconUri, size = 512)
+            if (bmp != null) {
+                customBitmap = bmp
+            }
+        }
+    }
+
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
         if (uri != null) {
-            customImageUri = uri
-            coroutineScope.launch(Dispatchers.IO) {
-                try {
-                    val bmp = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                        ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, uri)) { decoder, _, _ ->
-                            decoder.isMutableRequired = true
-                        }
-                    } else {
-                        @Suppress("DEPRECATION")
-                        MediaStore.Images.Media.getBitmap(context.contentResolver, uri)
-                    }
-                    withContext(Dispatchers.Main) {
-                        customBitmap = bmp
-                    }
-                } catch (e: Exception) {
-                    e.printStackTrace()
+            isImageLoading = true
+            coroutineScope.launch {
+                val savedPath = ShortcutHelper.saveCustomImage(context, uri)
+                if (savedPath != null) {
+                    customImagePath = savedPath
+                    val bmp = IconHelper.loadCustomIconBitmap(context, savedPath, size = 512)
+                    customBitmap = bmp
+                } else {
+                    Toast.makeText(context, "图片加载与裁剪失败，请重试", Toast.LENGTH_SHORT).show()
                 }
+                isImageLoading = false
             }
         }
     }
@@ -199,7 +199,7 @@ fun AddToDesktopDialog(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "桌面效果预览",
+                        text = "桌面效果实时预览",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = FontWeight.Medium
@@ -219,16 +219,22 @@ fun AddToDesktopDialog(
                             ),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (selectedTab == 1 && customBitmap != null) {
+                        if (selectedTab == 1 && isImageLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(28.dp),
+                                color = HyperOSBlue,
+                                strokeWidth = 2.5.dp
+                            )
+                        } else if (selectedTab == 1 && customBitmap != null) {
                             Image(
                                 bitmap = customBitmap!!.asImageBitmap(),
                                 contentDescription = "自定义桌面图标",
                                 modifier = Modifier.size(68.dp),
                                 contentScale = ContentScale.Crop
                             )
-                        } else if (selectedTab == 1 && customImageUri != null) {
+                        } else if (selectedTab == 1 && !customImagePath.isNullOrBlank()) {
                             AsyncImage(
-                                model = customImageUri,
+                                model = customImagePath,
                                 contentDescription = "自定义桌面图标",
                                 modifier = Modifier.size(68.dp),
                                 contentScale = ContentScale.Crop
@@ -340,7 +346,7 @@ fun AddToDesktopDialog(
                             fontWeight = FontWeight.SemiBold
                         )
 
-                        // 3 rows of icons
+                        // List of icons
                         LazyRow(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             contentPadding = PaddingValues(vertical = 4.dp)
@@ -376,7 +382,7 @@ fun AddToDesktopDialog(
                         }
                     }
                 } else {
-                    // External Image Upload & Picker
+                    // External Image Upload & Picker via Coil
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -387,7 +393,11 @@ fun AddToDesktopDialog(
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Button(
-                            onClick = { imagePickerLauncher.launch("image/*") },
+                            onClick = {
+                                photoPickerLauncher.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                )
+                            },
                             shape = RoundedCornerShape(12.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = HyperOSBlue)
                         ) {
@@ -402,14 +412,14 @@ fun AddToDesktopDialog(
 
                         if (customBitmap != null) {
                             Text(
-                                text = "已加载自定义图片，桌面图标将自动裁剪为 MIUI 圆角",
+                                text = "已通过 Coil 加载并实时裁剪为圆角矩形桌面图标",
                                 fontSize = 11.sp,
                                 color = HyperOSEmerald,
                                 fontWeight = FontWeight.Medium
                             )
                         } else {
                             Text(
-                                text = "支持 PNG、JPG、WEBP 格式，推荐正方形高清图片",
+                                text = "支持 PNG、JPG、WEBP 格式，通过 Coil 自动裁剪为圆角矩形图标",
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -458,7 +468,7 @@ fun AddToDesktopDialog(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Icon(
-                                imageVector = Icons.Default.OpenInNew,
+                                imageVector = Icons.AutoMirrored.Filled.OpenInNew,
                                 contentDescription = null,
                                 modifier = Modifier.size(14.dp)
                             )
@@ -474,7 +484,8 @@ fun AddToDesktopDialog(
                 onClick = {
                     val updatedShortcut = shortcut.copy(
                         alias = shortcutTitle.ifBlank { shortcut.alias },
-                        iconName = selectedIconName
+                        iconName = selectedIconName,
+                        customIconUri = if (selectedTab == 1) customImagePath else null
                     )
 
                     val targetBitmap = if (selectedTab == 1 && customBitmap != null) {

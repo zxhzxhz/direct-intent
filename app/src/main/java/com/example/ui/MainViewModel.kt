@@ -1,6 +1,8 @@
 package com.example.ui
 
+import android.app.Application
 import android.content.Context
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -10,6 +12,7 @@ import com.example.data.ShortcutRepository
 import com.example.utils.IntentLauncher
 import com.example.utils.PresetTemplates
 import com.example.utils.RootShell
+import com.example.utils.TileHelper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -20,7 +23,10 @@ import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
 
-class MainViewModel(private val repository: ShortcutRepository) : ViewModel() {
+class MainViewModel(
+    application: Application,
+    private val repository: ShortcutRepository
+) : AndroidViewModel(application) {
 
     data class RootState(
         val isChecking: Boolean = false,
@@ -99,6 +105,7 @@ class MainViewModel(private val repository: ShortcutRepository) : ViewModel() {
                     PresetTemplates.presets.forEach { preset ->
                         repository.insert(preset)
                     }
+                    TileHelper.requestUpdateAllTiles(getApplication())
                 }
             }
         }
@@ -119,12 +126,14 @@ class MainViewModel(private val repository: ShortcutRepository) : ViewModel() {
             } else {
                 repository.update(shortcut)
             }
+            TileHelper.requestUpdateAllTiles(getApplication())
         }
     }
 
     fun deleteShortcut(shortcut: ShortcutEntity) {
         viewModelScope.launch {
             repository.delete(shortcut)
+            TileHelper.requestUpdateAllTiles(getApplication())
         }
     }
 
@@ -153,6 +162,8 @@ class MainViewModel(private val repository: ShortcutRepository) : ViewModel() {
                     alias = obj.optString("alias", "导入指令"),
                     intentUri = obj.optString("intentUri", ""),
                     iconName = obj.optString("iconName", "bolt"),
+                    customIconUri = if (obj.has("customIconUri") && !obj.isNull("customIconUri")) obj.getString("customIconUri") else null,
+                    customColor = if (obj.has("customColor") && !obj.isNull("customColor")) obj.getLong("customColor") else null,
                     useRoot = obj.optBoolean("useRoot", true),
                     tileSlot = obj.optInt("tileSlot", 0),
                     category = obj.optString("category", "导入")
@@ -163,6 +174,9 @@ class MainViewModel(private val repository: ShortcutRepository) : ViewModel() {
                     }
                     count++
                 }
+            }
+            if (count > 0) {
+                TileHelper.requestUpdateAllTiles(getApplication())
             }
             "成功导入 $count 条快捷指令"
         } catch (e: Exception) {
@@ -177,6 +191,8 @@ class MainViewModel(private val repository: ShortcutRepository) : ViewModel() {
                 put("alias", it.alias)
                 put("intentUri", it.intentUri)
                 put("iconName", it.iconName)
+                it.customIconUri?.let { uri -> put("customIconUri", uri) }
+                it.customColor?.let { color -> put("customColor", color) }
                 put("useRoot", it.useRoot)
                 put("tileSlot", it.tileSlot)
                 put("category", it.category)
@@ -186,11 +202,14 @@ class MainViewModel(private val repository: ShortcutRepository) : ViewModel() {
         return jsonArray.toString(2)
     }
 
-    class Factory(private val repository: ShortcutRepository) : ViewModelProvider.Factory {
+    class Factory(
+        private val application: Application,
+        private val repository: ShortcutRepository
+    ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(MainViewModel::class.java)) {
-                return MainViewModel(repository) as T
+                return MainViewModel(application, repository) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")
         }

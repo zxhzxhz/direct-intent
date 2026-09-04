@@ -7,6 +7,7 @@ import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import android.util.Log
 import com.example.data.AppDatabase
+import com.example.utils.IconHelper
 import com.example.utils.IntentLauncher
 import com.example.utils.RootShell
 import kotlinx.coroutines.CoroutineScope
@@ -38,6 +39,7 @@ abstract class BaseQuickTileService(val tileSlot: Int) : TileService() {
                         qsTile.subtitle = "点击在 App 内绑定"
                     }
                     qsTile.state = Tile.STATE_INACTIVE
+                    qsTile.icon = IconHelper.getTileIcon(applicationContext, null)
                     qsTile.updateTile()
 
                     // Launch main activity to let user bind intent
@@ -108,6 +110,9 @@ abstract class BaseQuickTileService(val tileSlot: Int) : TileService() {
             val db = AppDatabase.getDatabase(applicationContext)
             val shortcut = db.shortcutDao().getShortcutByTileSlotSync(tileSlot)
             val qsTile = qsTile ?: return@launch
+
+            val tileIcon = IconHelper.getTileIcon(applicationContext, shortcut)
+            qsTile.icon = tileIcon
 
             if (shortcut != null) {
                 qsTile.label = shortcut.alias

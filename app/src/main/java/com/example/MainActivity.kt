@@ -26,7 +26,7 @@ class MainActivity : ComponentActivity() {
 
     val database = AppDatabase.getDatabase(applicationContext)
     val repository = ShortcutRepository(database.shortcutDao())
-    val factory = MainViewModel.Factory(repository)
+    val factory = MainViewModel.Factory(application, repository)
     viewModel = ViewModelProvider(this, factory)[MainViewModel::class.java]
 
     setContent {
